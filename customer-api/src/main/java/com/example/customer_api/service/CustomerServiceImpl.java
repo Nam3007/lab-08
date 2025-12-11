@@ -2,6 +2,7 @@ package com.example.customer_api.service;
 
 import com.example.customer_api.dto.CustomerRequestDTO;
 import com.example.customer_api.dto.CustomerResponseDTO;
+import com.example.customer_api.dto.CustomerUpdateDTO;
 import com.example.customer_api.entity.Customer;
 import com.example.customer_api.exception.DuplicateResourceException;
 import com.example.customer_api.exception.ResourceNotFoundException;
@@ -12,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 @Service
 @Transactional
 public class CustomerServiceImpl implements CustomerService {
@@ -25,13 +28,14 @@ public class CustomerServiceImpl implements CustomerService {
     }
     
     @Override
-    public List<CustomerResponseDTO> getAllCustomers() {
-        return customerRepository.findAll()
-                .stream()
-                .map(this::convertToResponseDTO)
-                .collect(Collectors.toList());
-    }
-    
+    public Page<CustomerResponseDTO> getAllCustomers(int page, int size,Sort sort ){
+        return customerRepository.findAll(PageRequest.of(page, size, sort))
+                .map(this::convertToResponseDTO);
+     }
+
+   
+
+
     @Override
     public CustomerResponseDTO getCustomerById(Long id) {
         Customer customer = customerRepository.findById(id)
@@ -101,11 +105,51 @@ public class CustomerServiceImpl implements CustomerService {
     
     @Override
     public List<CustomerResponseDTO> getCustomersByStatus(String status) {
-        return customerRepository.findByStatus(status)
+        Customer.CustomerStatus enumStatus;
+        try {
+            enumStatus = Customer.CustomerStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid status value: " + status);
+        }
+        return customerRepository.findByStatus(enumStatus)
                 .stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
+
+    // Advanced search implementation
+    @Override
+    public List<CustomerResponseDTO> advancedSearch(String fullName, String email, String status) {
+        Customer.CustomerStatus enumStatus = null;
+        if (status != null) {
+            try {
+                enumStatus = Customer.CustomerStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid status value: " + status);
+            }
+        }
+        return customerRepository.advancedSearch(fullName, email, enumStatus)
+                .stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    public CustomerResponseDTO partialUpdateCustomer(Long id, CustomerUpdateDTO updateDTO) {
+    Customer customer = customerRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+    
+    // Only update non-null fields
+    if (updateDTO.getFullName() != null) {
+        customer.setFullName(updateDTO.getFullName());
+    }
+    if (updateDTO.getEmail() != null) {
+        customer.setEmail(updateDTO.getEmail());
+    }
+    // ... other fields
+    
+    return convertToResponseDTO(customerRepository.save(customer));
+}
+
     
     // Helper Methods for DTO Conversion
     
@@ -131,4 +175,6 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setAddress(dto.getAddress());
         return customer;
     }
+
+    
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import com.example.customer_api.entity.Customer;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
@@ -20,11 +21,19 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     
     boolean existsByEmail(String email);
     
-    List<Customer> findByStatus(String status);
+    List<Customer> findByStatus(Customer.CustomerStatus  status);
     
     @Query("SELECT c FROM Customer c WHERE " +
            "LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(c.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(c.customerCode) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Customer> searchCustomers(@Param("keyword") String keyword);
+
+     @Query("SELECT c FROM Customer c WHERE " +
+            "(:fullName IS NULL OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :fullName, '%'))) AND " +
+            "(:email IS NULL OR LOWER(c.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
+            "(:status IS NULL OR c.status = :status)")
+    List<Customer> advancedSearch(@Param("fullName") String fullName,
+                                  @Param("email") String email,
+                                  @Param("status") Customer.CustomerStatus status);
 }
